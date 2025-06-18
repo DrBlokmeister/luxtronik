@@ -128,6 +128,7 @@ class LuxtronikFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input,
                 exc_info=err,
             )
+            return self.async_abort(reason="unknown")
 
     async def _async_migrate_data_from_custom_component_luxtronik2(self):
         """
@@ -243,6 +244,7 @@ class LuxtronikFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input,
                 exc_info=err,
             )
+            return self.async_abort(reason="unknown")
 
     async def async_step_dhcp(self, discovery_info: DhcpServiceInfo) -> FlowResult:
         """Prepare configuration for a DHCP discovered Luxtronik heatpump."""
@@ -253,7 +255,10 @@ class LuxtronikFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 discovery_info.ip,
             )
             # Validate dhcp result with socket broadcast:
-            broadcast_discover_ip, broadcast_discover_port = discover()[0]
+            discover_result = discover()
+            if not discover_result:
+                return self.async_abort(reason="no_devices_found")
+            broadcast_discover_ip, broadcast_discover_port = discover_result[0]
             if broadcast_discover_ip != discovery_info.ip:
                 return self.async_abort(reason="no_devices_found")
             config = dict[str, Any]()
@@ -282,6 +287,7 @@ class LuxtronikFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 discovery_info,
                 exc_info=err,
             )
+            return self.async_abort(reason="unknown")
 
     async def _show_setup_form(
         self, errors: dict[str, str] | None = None
@@ -297,6 +303,7 @@ class LuxtronikFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             LOGGER.error(
                 "Could not handle config_flow._show_setup_form %s", errors, exc_info=err
             )
+            return self.async_abort(reason="unknown")
 
     @staticmethod
     @callback
@@ -368,6 +375,7 @@ class LuxtronikOptionsFlowHandler(config_entries.OptionsFlowWithConfigEntry):
                 user_input,
                 exc_info=err,
             )
+            return self.async_abort(reason="unknown")
 
 
 # config_entry_flow.register_discovery_flow(DOMAIN, "Luxtronik", _async_has_devices)
