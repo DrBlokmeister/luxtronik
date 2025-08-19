@@ -21,7 +21,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import EntityPlatform
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .common import correct_key_value
+from .common import correct_key_value, get_platform_translation
 from .const import (
     CONF_CALCULATIONS,
     CONF_MAX_DATA_LENGTH,
@@ -256,9 +256,9 @@ class LuxtronikCoordinator(DataUpdateCoordinator[LuxtronikCoordinatorData]):
     ) -> str:
         if platform is None:
             return str(key.value)
-        return platform.platform_data.platform_translations.get(
-            f"component.{DOMAIN}.entity.device.{key.value}.name"
-        )
+        return get_platform_translation(
+            platform, f"component.{DOMAIN}.entity.device.{key.value}.name"
+        ) or str(key.value)
 
     def _build_device_info(
         self,

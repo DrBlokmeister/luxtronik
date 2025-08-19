@@ -18,7 +18,7 @@ from homeassistant.helpers.typing import StateType
 from homeassistant.util.dt import utcnow, dt as dt_util
 
 from .base import LuxtronikEntity
-from .common import get_sensor_data
+from .common import get_sensor_data, get_platform_translation
 from .const import (
     CONF_COORDINATOR,
     CONF_HA_SENSOR_PREFIX,
@@ -377,28 +377,36 @@ class LuxtronikStatusSensorEntity(LuxtronikSensorEntity, SensorEntity):
             return ""
         if line_2_state is None or line_2_state == STATE_UNAVAILABLE:
             return ""
-        line_1 = self.platform.platform_data.platform_translations.get(
-            f"component.{DOMAIN}.entity.sensor.status_line_1.state.{line_1_state}"
+        line_1 = get_platform_translation(
+            self.platform,
+            f"component.{DOMAIN}.entity.sensor.status_line_1.state.{line_1_state}",
         )
-        line_2 = self.platform.platform_data.platform_translations.get(
-            f"component.{DOMAIN}.entity.sensor.status_line_2.state.{line_2_state}"
+        line_2 = get_platform_translation(
+            self.platform,
+            f"component.{DOMAIN}.entity.sensor.status_line_2.state.{line_2_state}",
         )
         # Show evu end time if available
         evu_event_minutes = self._calc_next_evu_event_minutes()
         if evu_event_minutes is None:
             pass
         elif self.native_value == LuxOperationMode.evu.value:
-            text_locale = self.platform.platform_data.platform_translations.get(
-                f"component.{DOMAIN}.entity.sensor.status.state_attributes.evu_text.state.evu_until"
+            text_locale = get_platform_translation(
+                self.platform,
+                f"component.{DOMAIN}.entity.sensor.status.state_attributes.evu_text.state.evu_until",
             )
-            evu_until = text_locale.format(evu_time=evu_event_minutes)
-            return f"{evu_until} {line_1} {line_2} {status_time}."
+            if text_locale:
+                evu_until = text_locale.format(evu_time=evu_event_minutes)
+                return f"{evu_until} {line_1} {line_2} {status_time}."
+            return f"{line_1} {line_2} {status_time}."
         elif evu_event_minutes <= 30:
-            text_locale = self.platform.platform_data.platform_translations.get(
-                f"component.{DOMAIN}.entity.sensor.status.state_attributes.evu_text.state.evu_in"
+            text_locale = get_platform_translation(
+                self.platform,
+                f"component.{DOMAIN}.entity.sensor.status.state_attributes.evu_text.state.evu_in",
             )
-            evu_in = text_locale.format(evu_time=evu_event_minutes)
-            return f"{line_1} {line_2} {status_time}. {evu_in}"
+            if text_locale:
+                evu_in = text_locale.format(evu_time=evu_event_minutes)
+                return f"{line_1} {line_2} {status_time}. {evu_in}"
+            return f"{line_1} {line_2} {status_time}."
         return f"{line_1} {line_2} {status_time}."
 
     def _calc_next_evu_event_minutes_text(self) -> str:
