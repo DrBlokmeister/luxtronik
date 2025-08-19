@@ -213,6 +213,10 @@ class Luxtronik:
                 "Disconnected from Luxtronik heatpump %s:%s", self._host, self._port
             )
 
+    def disconnect(self):
+        """Public wrapper to close the socket connection."""
+        self._disconnect()
+
     def read(self):
         """Read data from heatpump."""
         self._read_write(write=False)
