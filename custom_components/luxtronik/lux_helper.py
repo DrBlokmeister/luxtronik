@@ -5,9 +5,6 @@ from __future__ import annotations
 import socket
 import struct
 import threading
-import time
-
-from async_timeout import timeout
 
 from luxtronik.calculations import Calculations
 from luxtronik.parameters import Parameters
@@ -250,10 +247,17 @@ class Luxtronik:
                     self._port,
                     self._socket_timeout,
                 )
-            if write:
-                self._write()
+            try:
+                if write:
+                    self._write()
                 # Read the new values based on our param changes:
-            self._read()
+                self._read()
+            except (OSError, struct.error) as err:
+                # Ensure the socket is closed so a new connection will be
+                # created on the next update. This allows the integration to
+                # recover gracefully from temporary connection drops.
+                self._disconnect()
+                raise err
 
     def _read(self):
         self._read_parameters()
@@ -285,6 +289,11 @@ class Luxtronik:
         cmd = struct.unpack(">i", self._socket.recv(4))[0]
         LOGGER.debug("Command %s", cmd)
         length = struct.unpack(">i", self._socket.recv(4))[0]
+        if length <= 0:
+            # Force reconnect for the next readout if the gateway reports an
+            # empty result set. This usually indicates a dropped connection.
+            self._disconnect()
+            raise OSError("Received empty parameter payload")
         if length > self._max_data_length:
             LOGGER.warning(
                 "Skip reading parameters! Length oversized! %s>%s",
@@ -297,8 +306,11 @@ class Luxtronik:
             try:
                 data.append(struct.unpack(">i", self._socket.recv(4))[0])
             except struct.error as err:
-                # not logging this as error as it would be logged on every read cycle
-                LOGGER.debug(err)
+                # Connection dropped in the middle of receiving data, force a
+                # reconnect and re-raise an OSError so the coordinator will
+                # retry later.
+                self._disconnect()
+                raise OSError("Failed to read parameter data") from err
         LOGGER.debug("Read %d parameters", length)
         self.parameters.parse(data)
 
@@ -310,6 +322,9 @@ class Luxtronik:
         stat = struct.unpack(">i", self._socket.recv(4))[0]
         LOGGER.debug("Stat %s", stat)
         length = struct.unpack(">i", self._socket.recv(4))[0]
+        if length <= 0:
+            self._disconnect()
+            raise OSError("Received empty calculation payload")
         if length > self._max_data_length:
             LOGGER.warning(
                 "Skip reading calculations! Length oversized! %s>%s",
@@ -322,8 +337,8 @@ class Luxtronik:
             try:
                 data.append(struct.unpack(">i", self._socket.recv(4))[0])
             except struct.error as err:
-                # not logging this as error as it would be logged on every read cycle
-                LOGGER.debug(err)
+                self._disconnect()
+                raise OSError("Failed to read calculation data") from err
         LOGGER.debug("Read %d calculations", length)
         self.calculations.parse(data)
 
@@ -340,15 +355,16 @@ class Luxtronik:
                 self._max_data_length,
             )
             return
-        elif length <= 0:
+        if length <= 0:
             # Force reconnect for the next readout
             self._disconnect()
+            raise OSError("Received empty visibility payload")
         LOGGER.debug("Length %s", length)
         for _ in range(0, length):
             try:
                 data.append(struct.unpack(">b", self._socket.recv(1))[0])
             except struct.error as err:
-                # not logging this as error as it would be logged on every read cycle
-                LOGGER.debug(err)
+                self._disconnect()
+                raise OSError("Failed to read visibility data") from err
         LOGGER.debug("Read %d visibilities", length)
         self.visibilities.parse(data)
