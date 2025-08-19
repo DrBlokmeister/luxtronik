@@ -137,10 +137,13 @@ class LuxtronikCoordinator(DataUpdateCoordinator[LuxtronikCoordinatorData]):
             with self.lock:
                 self.client.read()
         except (OSError, ConnectionRefusedError, ConnectionResetError) as err:
+            self.client.disconnect()
             raise UpdateFailed("Read: Error communicating with device") from err
-        except UpdateFailed:
-            pass
+        except UpdateFailed as err:
+            self.client.disconnect()
+            raise err
         except Exception as err:
+            self.client.disconnect()
             raise UpdateFailed("Read: Error communicating with device") from err
         self.data = LuxtronikCoordinatorData(
             parameters=self.client.parameters,
@@ -154,13 +157,17 @@ class LuxtronikCoordinator(DataUpdateCoordinator[LuxtronikCoordinatorData]):
             self.client.parameters.set(parameter, value)
             with self.lock:
                 self.client.write()
-        except (ConnectionRefusedError, ConnectionResetError) as err:
+        except (OSError, ConnectionRefusedError, ConnectionResetError) as err:
             LOGGER.exception(err)
+            self.client.disconnect()
             raise UpdateFailed("Read: Error communicating with device") from err
         except UpdateFailed as err:
             LOGGER.exception(err)
+            self.client.disconnect()
+            raise err
         except Exception as err:
             LOGGER.exception(err)
+            self.client.disconnect()
             raise UpdateFailed("Write: Error communicating with device") from err
         finally:
             self.data = LuxtronikCoordinatorData(
