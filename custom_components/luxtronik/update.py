@@ -10,6 +10,7 @@ def _extract_firmware_version(filename: str) -> str | None:
     match = re.search(r"V\d+\.\d+\.\d+(?:-\d+$)?", filename)
     return match.group(0) if match else None
 
+
 try:  # pragma: no cover - exercised in Home Assistant environment
     # region Imports
     from datetime import datetime, timedelta
@@ -79,7 +80,6 @@ try:  # pragma: no cover - exercised in Home Assistant environment
 
         async_add_entities(entities, True)
 
-
     class LuxtronikUpdateEntity(LuxtronikEntity, UpdateEntity):
         """Representation of Luxtronik."""
 
@@ -118,7 +118,10 @@ try:  # pragma: no cover - exercised in Home Assistant environment
         @property
         def latest_version(self) -> str | None:
             """Return if there is an update."""
-            if self.__firmware_version_available is None or self.installed_version is None:
+            if (
+                self.__firmware_version_available is None
+                or self.installed_version is None
+            ):
                 return None
             return self.__firmware_version_available[: len(self.installed_version)]
 
@@ -168,7 +171,9 @@ try:  # pragma: no cover - exercised in Home Assistant environment
                         f"{DOWNLOAD_PORTAL_URL}{download_id}", timeout=30
                     )
                     header_content_disposition = response.headers["content-disposition"]
-                    filename = re.findall("filename=(.+)", header_content_disposition)[0]
+                    filename = re.findall("filename=(.+)", header_content_disposition)[
+                        0
+                    ]
                     self.__firmware_version_available_last_request = (
                         datetime.utcnow().timestamp()
                     )
@@ -185,10 +190,12 @@ try:  # pragma: no cover - exercised in Home Assistant environment
             download_id = get_firmware_download_id(self.installed_version)
             if download_id is not None:
                 threading.Thread(
-                    target=do_request_available_firmware_version, args=(self, download_id)
+                    target=do_request_available_firmware_version,
+                    args=(self, download_id),
                 ).start()
 
 except ModuleNotFoundError:  # pragma: no cover - executed in tests
+
     class LuxtronikUpdateEntity:  # type: ignore[no-redef]
         """Fallback entity used when Home Assistant is not installed."""
 
